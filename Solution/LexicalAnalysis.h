@@ -48,15 +48,14 @@ private:
 	void error(string str) {
 		errors.emplace_back(str);
 	}
-	void note_handle();
 public:
 	LexicalAna(string file_name) {
 		file.open(file_name, ios::in);
 		if (file.is_open()) {
-			cout << "打开成功";
+			cout << "打开成功\n";
 		}
 		else {
-			cout << "打开失败";
+			cout << "打开失败\n";
 		}
 	}
 	void run();

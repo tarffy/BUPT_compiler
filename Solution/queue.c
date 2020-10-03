@@ -1,8 +1,8 @@
-/* 
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-*/
+#define MAX 10
+#typedef INT int
 order *fromfile(FILE *fp1){
 extern int ordernum,board[9][9];
 extern node birthplace;

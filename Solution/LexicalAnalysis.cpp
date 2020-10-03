@@ -7,39 +7,9 @@ void LexicalAna::_getchar()
 		return;
 	}
 	C = file.get();
-	note_handle();
-	while (C == '\n' || C == '\t') {
-		if (file.eof()) { 
-			end = 1; 
-			return;
-		}
-		C = file.get();
-		note_handle();
-	}
 }
 
-void LexicalAna::note_handle()
-{
-	if (!note_line && !note_lines)return;
-	if (note_line&&C == '\n') {
-		note_line = 0;
-		
-	}
-	if (note_lines&&C == '*') {
-		if (file.eof()) {
-			end = 1;
-			return;
-		}
-		C = file.get();
-		if (C == '/') {
-			note_lines = 0;
-		}
-		else {
-			retract();
-		}
-	}
-	C = '\n';
-}
+
 
 void LexicalAna::run()
 {
@@ -61,9 +31,11 @@ void LexicalAna::run()
 			case '\'':
 			case '\"':str_token = C; state = 15; break;
 			case '-':state=16; break;
+			case '+':state = 17; break;
+			case '*':state = 18; break;
 			case '^':table.emplace_back("relop", "XOR"); break;
-			case '+':table.emplace_back("+", ""); break;
-			case '*':table.emplace_back("*", ""); break;
+			case '#':state = 20; break;
+			
 			case '(':table.emplace_back("(", ""); break;
 			case ')':table.emplace_back(")", ""); break;
 			case '[':table.emplace_back("[", ""); break;
@@ -77,7 +49,8 @@ void LexicalAna::run()
 			case '%':table.emplace_back("%", ""); break;
 			case ',':table.emplace_back(",", ""); break;
 			case '.':table.emplace_back(".", ""); break;
-
+			case '\t':
+			case '\n':
 			case ' ':break;
 			default: {
 				if (is_letter()) {
@@ -245,20 +218,17 @@ void LexicalAna::run()
 			state = 0;
 			break;
 		}
-		case 11: {	//	/注释处理
+		case 11: {	//	/
 			cat();
 			_getchar();
-			if (C == '/') {
-				note_line = 1;
+			switch (C)
+			{
+			case '/':note_line = 1; state = 19; break;
+			case '*':note_lines = 1; state = 19; break;
+			case '=':table.emplace_back("/=", ""); break;
+			default:retract(); state = 0; table.emplace_back("/", ""); break;
 			}
-			else if (C == '*') {
-				note_lines = 1;
-			}
-			else {
-				retract();
-				table.emplace_back("/", "");
-			}
-			state = 0;
+			
 			break;
 		}
 		case 12: {	//!
@@ -312,15 +282,100 @@ void LexicalAna::run()
 		case 16: {	//-
 			cat();
 			_getchar();
-			if (C == '>') {
-				table.emplace_back("->", ""); 
+			switch (C)
+			{
+			case '>':table.emplace_back("->", ""); break;
+			case '-':table.emplace_back("--", ""); break;
+			case '=':table.emplace_back("-=", ""); break;
+			default:retract(); table.emplace_back("-", ""); break;
 			}
-			else {
-				retract();
-				table.emplace_back("-", "");
+			state = 0;
+			break;
+		}
+		case 17: {	//+
+			cat();
+			_getchar();
+			switch (C)
+			{
+			case '+':table.emplace_back("++", ""); break;
+			case '=':table.emplace_back("+=", ""); break;
+			default:retract(); table.emplace_back("+", ""); break;
+			}
+			state = 0;
+			break;
+		}
+		case 18: {	//*
+			cat();
+			_getchar();
+			switch (C)
+			{
+			case '=':table.emplace_back("*=", ""); break;
+			default:retract(); table.emplace_back("*", ""); break;
 			}
 			state = 0;
 
+			break;
+		}
+		case 19: {	//处理注释
+			_getchar();
+			if (note_line&&C == '\n') {
+				note_line = 0;
+				state = 0;
+				break;
+			}
+			if (note_lines&&C == '*') {
+				_getchar();
+				if (C == '/') {
+					note_lines = 0;
+					state = 0;
+					break;
+				}
+				else {
+					retract();
+				}
+			}
+			break;
+		}
+		case 20: {	// #
+			_getchar();
+			switch (C)
+			{
+			case 'i': {
+				while (C != '<')_getchar();
+				token.clear();
+				_getchar();
+				while (C != '>') {
+					cat();
+					_getchar();
+				}
+				table.emplace_back("#include", token);
+				while(C!='\n')_getchar();
+				break;
+			}
+			case 'd': {
+				while (C != ' ')_getchar();
+				while (C == ' ')_getchar();
+				token.clear();
+				while (C != '\n') {
+					cat();
+					_getchar();
+				}
+				table.emplace_back("#define", token);
+				break;
+			}
+			case 't': {
+				while (C != ' ')_getchar();
+				while (C == ' ')_getchar();
+				token.clear();
+				while (C != '\n') {
+					cat();
+					_getchar();
+				}
+				table.emplace_back("#typedef", token);
+				break;
+			}
+			}
+			state = 0;
 			break;
 		}
 		}
@@ -333,7 +388,7 @@ void LexicalAna::show_res()
 	for (auto &it : table) {
 		cout << it.first << " " << it.second << '\n';
 	}
-	cout << "symbol:\n";
+	cout << "symbols:\n";
 	for (auto &it : symbol_table) {
 		cout << it << '\n';
 	}
