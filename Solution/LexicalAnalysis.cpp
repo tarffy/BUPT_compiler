@@ -2,17 +2,61 @@
 
 void LexicalAna::_getchar()
 {
-	if (file.eof()) {
-		end = 1;
-		return;
+	if (buff_status == -1) {//起始时填充第一块缓冲区
+		file.get(buff1, 1025, EOF);//读取直到EOF 最多1024个字符会将buff1[1024]处置'\0'
+		buff_status = 0;
+		C = buff1[0];
+		cur = 1;
 	}
-	C = file.get();
+	else if (buff_status == 0) {
+		if (buff1[cur] == '\0') {
+			if (file.eof()) {
+				end = 1;
+				return;
+			}
+			file.get(buff2, 1025, EOF);
+			buff_status = 1;
+			C = buff2[0];
+			cur = 1;
+		}
+		else {
+			C = buff1[cur++];
+		}
+	}
+	else {	//buff_status==1
+		if (buff2[cur] == '\0') {
+			if (file.eof()) {
+				end = 1;
+				return;
+			}
+			file.get(buff1, 1025, EOF);
+			buff_status = 0;
+			C = buff1[0];
+			cur = 1;
+		}
+		else {
+			C = buff2[cur++];
+		}
+	}
+	
+	if (C == '\n')lines++;
+	letters++;
+}
+
+void LexicalAna::retract()
+{
+	if (C == '\n')lines--;
+	letters--;
+	cur--;
 }
 
 
 
 void LexicalAna::run()
 {
+	if (!file.is_open()) {
+		return;
+	}
 	while (!end) {
 		switch (state)
 		{
@@ -384,16 +428,23 @@ void LexicalAna::run()
 
 void LexicalAna::show_res()
 {
+	cout << "Total lines:" << lines<<'\n';
+	cout << "Total characters:" << letters << '\n';
 	cout << "table:\n";
 	for (auto &it : table) {
-		cout << it.first << " " << it.second << '\n';
+		cout << '<' <<it.first << " , " << it.second << ">\n";
 	}
 	cout << "symbols:\n";
 	for (auto &it : symbol_table) {
 		cout << it << '\n';
 	}
-	cout << "errors:\n";
-	for (auto &it : errors) {
-		cout << it << '\n';
+	if (errors.size()) {
+		cout << "errors:\n";
+		for (auto &it : errors) {
+			cout << it << '\n';
+		}
 	}
+
 }
+
+

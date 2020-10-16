@@ -5,7 +5,8 @@
 #include "LexicalAnalysis.h"
 int main()
 {
-	LexicalAna LA("queue.c");
+	LexicalAna LA("aa1.cpp");
+	//LA.test();
 	LA.run();
 	LA.show_res();
 	return 0;

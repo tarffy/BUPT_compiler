@@ -20,11 +20,15 @@ class LexicalAna {
 private:
 	ifstream file;
 	char C=0;
+	char Ctest;
 	string token;
 	int state=0;
 	int end = 0;
-	int note_line = 0, note_lines = 0;
+	int note_line = 0, note_lines = 0;		//是否处于注释行或注释块状态
 	char str_token;//字符串的标记 单引号还是双引号
+	char buff1[1025], buff2[1025];		//两个缓冲区
+	int buff_status = -1,cur;
+	int letters = 0, lines = 0;
 	vector<pair<string, string>> table;
 	unordered_set<string> symbol_table;
 	vector<string> errors;
@@ -33,9 +37,7 @@ private:
 		"register","return","short","signed","sizeof","static","struct","switch",
 		"typedef","union","unsigned","void","volatile","while"};
 	void _getchar();
-	void retract() {
-		file.seekg(-1, ios::cur);
-	}
+	void retract();
 	inline bool is_letter() {
 		return ((C >= 'a'&&C <= 'z') || (C >= 'A'&&C <= 'Z') || C=='_');
 	}
@@ -50,6 +52,7 @@ private:
 	}
 public:
 	LexicalAna(string file_name) {
+		buff1[1024] = buff2[1024] = '\0';
 		file.open(file_name, ios::in);
 		if (file.is_open()) {
 			cout << "打开成功\n";
