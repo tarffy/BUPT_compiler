@@ -1,9 +1,9 @@
 #include "LexicalAnalysis.h"
-
+using std::to_string;
 void LexicalAna::_getchar()
 {
 	if (buff_status == -1) {//起始时填充第一块缓冲区
-		file.get(buff1, 1025, EOF);//读取直到EOF 最多1024个字符会将buff1[1024]处置'\0'
+		file.get(buff1, BUFFER_SIZE+1, EOF);//读取直到EOF 最多BUFFER_SIZE个字符会将buff1[BUFFER_SIZE]处置'\0'
 		buff_status = 0;
 		C = buff1[0];
 		cur = 1;
@@ -14,7 +14,7 @@ void LexicalAna::_getchar()
 				end = 1;
 				return;
 			}
-			file.get(buff2, 1025, EOF);
+			file.get(buff2, BUFFER_SIZE + 1, EOF);
 			buff_status = 1;
 			C = buff2[0];
 			cur = 1;
@@ -29,7 +29,7 @@ void LexicalAna::_getchar()
 				end = 1;
 				return;
 			}
-			file.get(buff1, 1025, EOF);
+			file.get(buff1, BUFFER_SIZE + 1, EOF);
 			buff_status = 0;
 			C = buff1[0];
 			cur = 1;
@@ -39,15 +39,24 @@ void LexicalAna::_getchar()
 		}
 	}
 	
-	if (C == '\n')lines++;
+	if (C == '\n') { lines++; tem_letter_new_line = letter_new_line; letter_new_line = 0; }
+	else if(C=='\t')letter_new_line+=4;
+	else letter_new_line++;
 	letters++;
 }
 
 void LexicalAna::retract()
 {
-	if (C == '\n')lines--;
+	if (C == '\n') { lines--; letter_new_line = tem_letter_new_line; }
+	else letter_new_line--;
 	letters--;
 	cur--;
+}
+
+void LexicalAna::error( string str)
+{
+	string tem = "Line " + to_string(lines+1) + ",pos " + to_string(letter_new_line) + ":" + str;
+	errors.emplace_back(tem);
 }
 
 
@@ -79,7 +88,9 @@ void LexicalAna::run()
 			case '*':state = 18; break;
 			case '^':table.emplace_back("relop", "XOR"); break;
 			case '#':state = 20; break;
-			
+			case '%':state = 21; break;
+			case '~':state=22; break;
+
 			case '(':table.emplace_back("(", ""); break;
 			case ')':table.emplace_back(")", ""); break;
 			case '[':table.emplace_back("[", ""); break;
@@ -90,9 +101,10 @@ void LexicalAna::run()
 			case ':':table.emplace_back(":", ""); break;	//:=赋值要改
 			case '?':table.emplace_back("?", ""); break;
 			case '\\':table.emplace_back("\\", ""); break;
-			case '%':table.emplace_back("%", ""); break;
+			
 			case ',':table.emplace_back(",", ""); break;
 			case '.':table.emplace_back(".", ""); break;
+			
 			case '\t':
 			case '\n':
 			case ' ':break;
@@ -103,7 +115,7 @@ void LexicalAna::run()
 				if (is_digit()) {
 					state = 2; break;
 				}
-				error(string("state 0 invalid letter ")+C+" "+std::to_string(int(C)));
+				error(string("Invalid letter ")+C+" ascii("+to_string(int(C)) + ") found.");
 				break;
 			}
 			}
@@ -121,9 +133,10 @@ void LexicalAna::run()
 				auto iskey = keys.find(token);
 				if (iskey != keys.end()) {
 					table.emplace_back(token, "");
-
+					counts[2]++;
 				}
 				else {
+					counts[0]++;
 					auto res = symbol_table.find(token);
 					if (res == symbol_table.end()) {
 						symbol_table.insert(token);
@@ -147,6 +160,7 @@ void LexicalAna::run()
 				retract();
 				state = 0;
 				table.emplace_back("num", 'i' + token);
+				counts[1]++;
 				break;
 			}
 			}
@@ -157,7 +171,7 @@ void LexicalAna::run()
 			_getchar();
 			if (is_digit())state = 4;
 			else {
-				error("wrong letter after .");
+				error("Invalid character after \'.\'.");
 				state = 0;
 			}
 
@@ -168,6 +182,7 @@ void LexicalAna::run()
 			_getchar();
 			switch (C)
 			{
+			case 'e':
 			case 'E':state = 5; break;
 			default:
 				if (is_digit()) {
@@ -177,6 +192,7 @@ void LexicalAna::run()
 				retract();
 				state = 0;
 				table.emplace_back("num", 'd' + token);
+				counts[1]++;
 				break;
 			}
 
@@ -195,7 +211,7 @@ void LexicalAna::run()
 					break;
 				}
 				retract();
-				error("Wrong letter after E");
+				error("Invalid character after E.");
 				state = 0;
 				break;
 			}
@@ -209,7 +225,7 @@ void LexicalAna::run()
 			if (is_digit())state = 7;
 			else {
 				retract();
-				error("No digit afetr E+ or E-");
+				error("No digit afetr E+ or E-.");
 				state = 0;
 				break;
 			}
@@ -222,6 +238,7 @@ void LexicalAna::run()
 				retract();
 				state = 0;
 				table.emplace_back("num", 's' + token);
+				counts[1]++;
 			}
 			break;
 		}
@@ -229,11 +246,17 @@ void LexicalAna::run()
 			cat();
 			_getchar();
 			if (C == '=') {
-				table.emplace_back("relop", "LE"); 
+				table.emplace_back("<=", ""); 
 			}
-			else {
+			else if (C == '<') {
+				cat();
+				_getchar();
+				if(C=='=')table.emplace_back("<<=", "");
+				else { table.emplace_back("<<", ""); retract();
+				}
+			}else {
 				retract();
-				table.emplace_back("relop", "LT"); 
+				table.emplace_back("<", ""); 
 			}
 			state = 0;
 			break;
@@ -241,23 +264,30 @@ void LexicalAna::run()
 		case 9: {	//	>
 			cat();
 			_getchar();
-			if(C=='=')table.emplace_back("relop", "GE");
-			else {
+			if(C=='=')table.emplace_back(">=", "");
+			else if (C == '>') {
+				cat();
+				_getchar();
+				if (C == '=')table.emplace_back(">>=", "");
+				else {
+					table.emplace_back(">>", ""); retract();
+				}
+			}else {
 				retract();
-				table.emplace_back("relop", "GT");
+				table.emplace_back(">", "");
 			}
 			state = 0;
 			break;
 		}
-		case 10: {	//	:=赋值	要改	改后= ==
+		case 10: {	//	=
 			cat();
 			_getchar();
 			if (C == '=') {
-				table.emplace_back("relop", "EQ");
+				table.emplace_back("==", "");
 			}
 			else {
 				retract();
-				table.emplace_back("assign-op", "");
+				table.emplace_back("=", "");
 			}
 			state = 0;
 			break;
@@ -294,6 +324,9 @@ void LexicalAna::run()
 			if (C == '&') {
 				table.emplace_back("relop", "AND");
 			}
+			else if (C == '=') {
+				table.emplace_back("&=", "");
+			}
 			else {
 				retract();
 				table.emplace_back("&", "");
@@ -307,6 +340,9 @@ void LexicalAna::run()
 			if (C == '|') {
 				table.emplace_back("relop", "OR"); 
 			}
+			else if (C == '=') {
+				table.emplace_back("|=", "");
+			}
 			else {
 				retract();
 				table.emplace_back("|", "");
@@ -319,6 +355,13 @@ void LexicalAna::run()
 			_getchar();
 			if (C == str_token) {
 				table.emplace_back("str",token.substr(1));
+				counts[3]++;
+				state = 0;
+			}
+			else if (C == '\n') {
+				retract();
+				error(string("No ") + str_token + " at the end of the line.");
+				_getchar();
 				state = 0;
 			}
 			break;
@@ -422,6 +465,30 @@ void LexicalAna::run()
 			state = 0;
 			break;
 		}
+		case 21: {//%
+			cat();
+			_getchar();
+			switch (C)
+			{
+			case '=':table.emplace_back("%=", ""); break;
+			default:retract(); table.emplace_back("%", ""); break;
+			}
+			state = 0;
+			break;
+		}
+		case 22: {	// ^
+			cat();
+			_getchar();
+			if (C == '=') {
+				table.emplace_back("^=", "");
+			}
+			else {
+				retract();
+				table.emplace_back("&", "");
+			}
+			state = 0;
+			break;
+		}
 		}
 	}
 }
@@ -430,16 +497,18 @@ void LexicalAna::show_res()
 {
 	cout << "Total lines:" << lines<<'\n';
 	cout << "Total characters:" << letters << '\n';
-	cout << "table:\n";
+	cout << "Total id: " << counts[0] << "   Total num: " << counts[1]
+		<< "   Total reserved word: " << counts[2] <<"   Total string: "<<counts[3]<<"\n";
+	cout << "\ntable:\n";
 	for (auto &it : table) {
 		cout << '<' <<it.first << " , " << it.second << ">\n";
 	}
-	cout << "symbols:\n";
+	cout << "\nsymbols:\n";
 	for (auto &it : symbol_table) {
 		cout << it << '\n';
 	}
 	if (errors.size()) {
-		cout << "errors:\n";
+		cout << "\nerrors:\n";
 		for (auto &it : errors) {
 			cout << it << '\n';
 		}

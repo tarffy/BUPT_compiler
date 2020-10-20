@@ -10,7 +10,8 @@ void *fib(void *param){
 	for(int i=2;i<num;i++)res[i]=res[i-1]+res[i-2];
 }
 int main(int argc,char *argv[]){
-	printf("%d",-9%5); 
+	int tem=2.2Ea; 
+	printf("%d",-9%5.); 
 	pthread_t tid;
 	pthread_attr_t attr;
 	if(argc!=2||atoi(argv[1])<0){
