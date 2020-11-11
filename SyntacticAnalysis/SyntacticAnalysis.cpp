@@ -1,4 +1,10 @@
 #include "SyntacticAnalysis.h"
+#include <iomanip>
+#include <ios>
+using std::setw;
+using std::setfill;
+using std::right;
+using std::setiosflags;
 
 SyntacticAna::SyntacticAna(string & name)
 {
@@ -83,11 +89,14 @@ void SyntacticAna::handle_generate_raw()
 			generate[j].second.push_back(symbols[token]);
 		}
 	}
-	symbols["__$"] = symbol_num++;
+	string tem="__e";
+	check_token(tem);
 	symbols_hash.resize(symbol_num);
 	for (auto &it : symbols) {
 		symbols_hash[it.second] = it.first;
 	}
+	handle_recursion();
+	reconstruct_generate_raw();
 }
 
 void SyntacticAna::get_next_token(string & s, int &cur)
@@ -99,8 +108,6 @@ void SyntacticAna::get_next_token(string & s, int &cur)
 			if (s.size()) {
 				return;
 			}
-			
-			
 		}
 		else {
 			s+= input[cur++];
@@ -200,43 +207,107 @@ void SyntacticAna::dfs_first(int symbol, vector<int>& finished, vector<int>& has
 	
 }
 
-void SyntacticAna::create_table()
+void SyntacticAna::reconstruct_generate_raw()
 {
-	string token;
-	char buffer[200];
+	generate_raw.clear();
+	generate_raw.resize(generate_num);
 	for (int i = 0; i < generate_num; i++) {
-		token.clear();
-		in.getline(buffer, 200);
-		string tem = buffer;
-		int first = 1, mode = 0;	//mode 0	first集中没有__e 1有
+		string tem;
+		tem = symbols_hash[generate[i].first]+" ->";
+		for (auto it : generate[i].second)tem += (" "+symbols_hash[it] );
+		generate_raw[i] = tem;
+	}
+}
 
-
-		auto generate_c = generate[i];
-		for (int j = 0; j < tem.size(); j++) {
-			if (tem[j] == ' ') {
-				//cout << i << "nd generate " << token << " \n";
-				if (first) {
-					first--;
-					if (token == "__e") {
-						mode = 1;
-					}
-					else {
-						table[{generate_c.first, symbols[token]}] = i;
-					}
+void SyntacticAna::handle_recursion()
+{
+	int added_generate = 0;
+	for (int i = 0; i < symbol_num; i++) {
+		if (nonter.find(i) == nonter.end())continue;
+		int exist_left = 0;
+		vector<int> left, no_left;
+		for (int j = 0; j < generate_num; j++) {
+			if (generate[j].first == i) {
+				if (generate[j].second[0] == i) {
+					exist_left = 1;
+					left.push_back(j);
 				}
 				else {
-						table[{generate_c.first, symbols[token]}] = i;
+					no_left.push_back(j);
 				}
-				token.clear();
+			}
+		}
+		if (exist_left) {
+			string symbol_ = symbols_hash[i] + '\'';
+
+			check_token(symbol_);
+			nonter.insert(symbols[symbol_]);
+			for (auto it : no_left) {
+				generate[it].second.push_back(symbols[symbol_]);
+			}
+			for (auto it : left) {
+				generate[it].first = symbols[symbol_];
+				int size = generate[it].second.size();
+				for (int j = 0; j < size - 1; j++) {
+					generate[it].second[j] = generate[it].second[j + 1];
+				}
+				generate[it].second[size - 1] = symbols[symbol_];
+
+			}
+			pair<int, vector<int>> res;
+			res.first = symbols[symbol_];
+			res.second.push_back(symbols["__e"]);
+			generate.emplace_back(res);
+			added_generate++;
+		}
+	}
+	symbols["__$"] = symbol_num++;
+	symbols_hash.clear();
+	symbols_hash.resize(symbol_num);
+	for (auto &it : symbols) {
+		symbols_hash[it.second] = it.first;
+	}
+	if (added_generate) {
+		cout << "消除左递归完成";
+		generate_num += added_generate;
+	}
+}
+
+void SyntacticAna::create_table()
+{
+	for (int i = 0; i < generate_num; i++) {
+		set<int> first_;
+		auto generate_left = generate[i].first;
+		auto generate_right = generate[i].second;
+		int j;
+		for (j = 0; j < generate_right.size(); j++) {
+			int break_flag = 1;
+			if (nonter.find(generate_right[j]) == nonter.end()) {
+				if (generate_right[j] == symbols["__e"]) {
+					j++; break;
+				}else
+				first_.insert(generate_right[j]);
 			}
 			else {
-				token += tem[j];
+				for (auto it2 : first[j]) {
+					if (it2 == symbols["__e"]) {
+						break_flag = 0;
+					}
+					else {
+						first_.insert(it2);
+					}
+				}
+			}
+			if (break_flag)break;
+		}
+		for (auto it2 : first_) {
+			table[{generate_left, it2}] = i;
+		}
+		if (j == generate_right.size()) {
+			for (auto it2 : follow[generate_left]) {
+				table[{generate_left, it2}] = i;
 			}
 		}
-		if (token.size()) {
-			table[{generate_c.first, symbols[token]}] = i;
-		}
-
 	}
 }
 
@@ -277,6 +348,10 @@ void SyntacticAna::show_res()
 		}
 		cout << "\n";
 	}
+	cout << "Reconstruct generate:\n";
+	for (auto &it : generate_raw) {
+		cout << it << '\n';
+	}
 	cout << "Table:\n";
 	for (auto &it : table) {
 		cout << it.first.first << " " << it.first.second << " " << it.second << "\n";
@@ -285,26 +360,43 @@ void SyntacticAna::show_res()
 
 void SyntacticAna::solve()
 {
+	const int output_stack = 30,output_input = 30,output_output = 20;
 	stack_.resize(100);
 	stack_cur = 0;
 	stack_[++stack_cur] = symbols["__$"];
 	stack_[++stack_cur] = 0;
-	int cur = 0;
+	int cur = 0,temcur=0;
 	string token;
 	get_next_token(token,cur);
+	cout <<"STACK"<< setw(output_stack-5)<<"";
+	cout << setw(output_input) << "INPUT";
+	cout << setw(output_output) << "OUTPUT" << "\n";
 	while (stack_cur>=0) {
+		int count = 0;
+		for (int i = 1; i <= stack_cur;i++) {
+			auto s = symbols_hash[stack_[i]];
+			count +=(s.size() + 1);
+			cout <<  s<< ' ';
+		}
+		cout << setw(output_stack - count) << setfill(' ') << "";
+		cout << setw(output_input)<<input.substr(temcur);
+		cout << setw(output_output);
 		auto top = stack_[stack_cur];
 		if (top == symbols[token] && token=="__$") {
-			cout << "SUCCESS";
+			cout << "SUCCESS\n";
 			return;
 		}
 		else if (top==symbols[token]) {
+			cout << "识别\n";
 			stack_cur--;
+			temcur = cur;
 			get_next_token(token, cur);
+			
 		}else
 		{
 			stack_cur--;
 			auto table_c = table[{top, symbols[token]}];
+			cout << "使用" << generate_raw[table_c]<<"\n";
 			for (int i = generate[table_c].second.size()-1; i >= 0; i--) {
 				auto num = generate[table_c].second[i];
 				if (symbols_hash[num] == "__e")continue;

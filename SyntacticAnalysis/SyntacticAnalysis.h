@@ -49,6 +49,8 @@ private:
 	void get_next_token(string &s, int &cur);
 	void first_and_follow_set();
 	void dfs_first(int symbol, vector<int> &finished, vector<int> &has__e);
+	void reconstruct_generate_raw();
+	void handle_recursion();
 public:
 	SyntacticAna(string &name);
 	void show_res();
