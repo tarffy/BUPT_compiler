@@ -125,18 +125,48 @@ void SyntacticAna::first_and_follow_set()
 	first.resize(symbols.size());
 	follow.resize(symbols.size());
 	vector<int> finished(symbols.size(), 0), has__e(symbols.size(), 0);
-	for (int i = 0; i < symbols.size(); i++) {
-		if (nonter.find(i) == nonter.end()) {
-			first[i].insert(i);
-			finished[i] = 1;
-			if (symbols_hash[i] == EPSILON)has__e[i] = 1;
+	for (auto it : termi)first[it].insert(it);
+	int end = 0,count;
+	while (!end) {
+		end = 1;
+		count = 0;
+		for (auto &it : first)count += it.size();
+		for (auto &it : generate) {
+			auto generate_left = it.first;
+			auto generate_right = it.second;
+			int i;
+			for (i = 0; i < generate_right.size(); i++) {
+				if (nonter.find(generate_right[i]) == nonter.end()) {
+					first[generate_left].insert(generate_right[i]);
+					break;
+				}
+				else if (__e == generate_right[i]) {
+					first[generate_left].insert(__e);
+					break;
+				}
+				else {
+					int no__e = 1;
+					for (auto it2 : first[generate_right[i]]) {
+						if (it2 == __e) {
+							no__e = 0;
+							continue;
+						}
+						first[generate_left].insert(it2);
+					}
+					if (no__e)break;
+				}
+			}
+			if (i == generate_right.size()
+				&& first[generate_right[i - 1]].find(__e) != first[generate_right[i - 1]].end()) {
+				first[generate_left].insert(__e);
+			}
 		}
+		for (auto &it : first)count -= it.size();
+		if (count != 0)end = 0;
 	}
-	for (int i = 0; i < symbols.size(); i++) {
-		if (finished[i])continue;
-		dfs_first(i, finished, has__e);
-	}
-	int end = 0;
+
+
+	end = 0;
 	follow[0].insert(symbols[DOLLAR]);
 	while (!end) {
 		end = 1;
@@ -159,7 +189,7 @@ void SyntacticAna::first_and_follow_set()
 						}
 						else {
 							for (auto it2 : first[generate_right[j]]) {
-								if (symbols_hash[it2] == EPSILON) {
+								if (it2==__e) {
 									break_flag = 0;
 								}
 								else {
@@ -181,33 +211,6 @@ void SyntacticAna::first_and_follow_set()
 	}
 
 
-}
-
-void SyntacticAna::dfs_first(int symbol, vector<int>& finished, vector<int>& has__e)
-{
-	for (int i = 0; i < generate.size(); i++) {
-		if (generate[i].first != symbol)continue;
-		auto generate_right = generate[i].second;
-		int j;
-		for (j = 0; j < generate_right.size();j++) {
-			auto token = generate_right[j];	//生成式右边 正在处理的符号
-			if (nonter.find(token) == nonter.end()) {//遇到终结符直接停止
-				first[symbol].insert(token);
-				if (symbols_hash[token] == EPSILON)has__e[token] = 1;
-				break;
-			}
-			else {
-				if (!finished[token])dfs_first(token, finished, has__e);
-				for (auto it : first[token]) {
-					first[symbol].insert(it);
-				}
-				if (!has__e[token])break;	//非终结符不致空 直接结束
-			}
-		}
-		if (j == generate_right.size())has__e[symbol] = 1;
-	}
-	finished[symbol] = 1;
-	
 }
 
 void SyntacticAna::reconstruct_generate_raw()
@@ -271,8 +274,12 @@ void SyntacticAna::handle_recursion()
 	for (auto &it : symbols) {
 		symbols_hash[it.second] = it.first;
 	}
+	for (int i = 0; i < symbol_num; i++) {
+		if (nonter.find(i) == nonter.end())termi.insert(i);
+	}
+	termi.erase(symbols[EPSILON]);
+	__e = symbols[EPSILON];
 	if (added_generate) {
-		cout << "消除左递归完成";
 		generate_num += added_generate;
 	}
 }
@@ -283,11 +290,7 @@ void SyntacticAna::show_table_and_generate()
 	for (int i = 0; i < generate_raw.size();i++)cout <<i<<" "<< generate_raw[i] << "\n";
 	cout << "分析表：\n";
 	int width = 12;
-	set<int> termi;
-	for (int i = 0; i < symbol_num;i++) {
-		if (nonter.find(i) == nonter.end())termi.insert(i);
-	}
-	termi.erase(symbols[EPSILON]);
+
 	cout << string(width/2, ' ');
 	for (auto it : termi)cout << setw(width) << symbols_hash[it];
 	cout << "\n";
@@ -308,6 +311,17 @@ void SyntacticAna::show_table_and_generate()
 	}
 }
 
+void SyntacticAna::show_errors()
+{
+	if (errors.size()) {
+		cout << "Errors:\n";
+		for (auto &it : errors)cout << it << "\n";
+	}
+	else {
+		cout << "No errors found.\n";
+	}
+}
+
 void SyntacticAna::create_table()
 {
 	for (int i = 0; i < generate_num; i++) {
@@ -318,14 +332,14 @@ void SyntacticAna::create_table()
 		for (j = 0; j < generate_right.size(); j++) {
 			int break_flag = 1;
 			if (nonter.find(generate_right[j]) == nonter.end()) {
-				if (generate_right[j] == symbols[EPSILON]) {
+				if (generate_right[j] == __e) {
 					j++; break;
 				}else
 				first_.insert(generate_right[j]);
 			}
 			else {
 				for (auto it2 : first[j]) {
-					if (it2 == symbols[EPSILON]) {
+					if (it2 == __e) {
 						break_flag = 0;
 					}
 					else {
@@ -463,8 +477,7 @@ void SyntacticAna::solve()
 			cout  << generate_raw[table_c]<<"\n";
 			for (int i = generate[table_c].second.size()-1; i >= 0; i--) {
 				auto num = generate[table_c].second[i];
-				if (symbols_hash[num] == EPSILON)continue;
-				if (symbols_hash[num] == EPSILON)continue;
+				if (num == __e)continue;
 				stack_[++stack_cur] = num;
 			}
 		}

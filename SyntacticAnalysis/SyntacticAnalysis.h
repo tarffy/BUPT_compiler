@@ -30,6 +30,8 @@ private:
 	int symbol_num = 0;		//符号的数量
 	unordered_map<string, int> symbols;		//记录所有的符号
 	set<int> nonter;		//非终结符
+	set<int> termi;
+	int __e;
 	vector<string> symbols_hash;
 	vector<pair<int, vector<int> > >  generate;		//格式化所有生成式--以数字代替符号
 	unordered_map<pair<int, int>, int,hashfunc> table;		//分析表
@@ -48,15 +50,16 @@ private:
 	void handle_generate_raw();//处理读入的原始生成式
 	void get_next_token(string &s, int &cur);//语法分析中 读取输入字符串的下一个字符
 	void first_and_follow_set();//计算所有非终结符的FIRST、FOLLOW集
-	void dfs_first(int symbol, vector<int> &finished, vector<int> &has__e);//以DFS方式计算FIRST集
 	void reconstruct_generate_raw();//消左递归后重新构造生成式
 	void handle_recursion();//消除左递归
 	void show_table_and_generate();//符号串分析前输出生成式和分析表
+	
 public:
 	SyntacticAna(string &name);
 	//构造函数 参数为文件名 构造函数中完成读入生成式 消除左递归 求FIRST、FOLLOW集 构造分析表 
 	//读入Input字符串操作
 	void show_res();//调试
+	void show_errors();
 	void solve();//进行符号串分析
 
 };
