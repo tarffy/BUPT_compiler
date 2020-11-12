@@ -7,4 +7,4 @@ T-> T / F
 T-> F
 F->( E )
 F->num
-( num ) __$
+( num ) _$

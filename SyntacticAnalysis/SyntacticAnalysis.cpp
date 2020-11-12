@@ -5,7 +5,9 @@ using std::setw;
 using std::setfill;
 using std::right;
 using std::setiosflags;
-
+#define EPSILON "_e"
+#define DOLLAR "_$"
+#define SYNCH -1
 SyntacticAna::SyntacticAna(string & name)
 {
 	in.open(name);
@@ -21,6 +23,7 @@ SyntacticAna::SyntacticAna(string & name)
 	char buffer[200];
 	in.getline(buffer, 200);
 	input = buffer;
+	if (input.find(DOLLAR) == -1)input += (string(" ") + DOLLAR);
 
 }
 
@@ -89,7 +92,7 @@ void SyntacticAna::handle_generate_raw()
 			generate[j].second.push_back(symbols[token]);
 		}
 	}
-	string tem="__e";
+	string tem=EPSILON;
 	check_token(tem);
 	symbols_hash.resize(symbol_num);
 	for (auto &it : symbols) {
@@ -126,7 +129,7 @@ void SyntacticAna::first_and_follow_set()
 		if (nonter.find(i) == nonter.end()) {
 			first[i].insert(i);
 			finished[i] = 1;
-			if (symbols_hash[i] == "__e")has__e[i] = 1;
+			if (symbols_hash[i] == EPSILON)has__e[i] = 1;
 		}
 	}
 	for (int i = 0; i < symbols.size(); i++) {
@@ -134,7 +137,7 @@ void SyntacticAna::first_and_follow_set()
 		dfs_first(i, finished, has__e);
 	}
 	int end = 0;
-	follow[0].insert(symbols["__$"]);
+	follow[0].insert(symbols[DOLLAR]);
 	while (!end) {
 		end = 1;
 		for (auto &it : generate) {
@@ -156,7 +159,7 @@ void SyntacticAna::first_and_follow_set()
 						}
 						else {
 							for (auto it2 : first[generate_right[j]]) {
-								if (symbols_hash[it2] == "__e") {
+								if (symbols_hash[it2] == EPSILON) {
 									break_flag = 0;
 								}
 								else {
@@ -190,7 +193,7 @@ void SyntacticAna::dfs_first(int symbol, vector<int>& finished, vector<int>& has
 			auto token = generate_right[j];	//生成式右边 正在处理的符号
 			if (nonter.find(token) == nonter.end()) {//遇到终结符直接停止
 				first[symbol].insert(token);
-				if (symbols_hash[token] == "__e")has__e[token] = 1;
+				if (symbols_hash[token] == EPSILON)has__e[token] = 1;
 				break;
 			}
 			else {
@@ -256,12 +259,13 @@ void SyntacticAna::handle_recursion()
 			}
 			pair<int, vector<int>> res;
 			res.first = symbols[symbol_];
-			res.second.push_back(symbols["__e"]);
+			res.second.push_back(symbols[EPSILON]);
 			generate.emplace_back(res);
 			added_generate++;
 		}
 	}
-	symbols["__$"] = symbol_num++;
+	symbols[DOLLAR] = symbol_num++;
+	//symbols[SYNCH] = symbol_num++;
 	symbols_hash.clear();
 	symbols_hash.resize(symbol_num);
 	for (auto &it : symbols) {
@@ -270,6 +274,37 @@ void SyntacticAna::handle_recursion()
 	if (added_generate) {
 		cout << "消除左递归完成";
 		generate_num += added_generate;
+	}
+}
+
+void SyntacticAna::show_table_and_generate()
+{
+	cout << "消左递归后生成式：\n";
+	for (int i = 0; i < generate_raw.size();i++)cout <<i<<" "<< generate_raw[i] << "\n";
+	cout << "分析表：\n";
+	int width = 12;
+	set<int> termi;
+	for (int i = 0; i < symbol_num;i++) {
+		if (nonter.find(i) == nonter.end())termi.insert(i);
+	}
+	termi.erase(symbols[EPSILON]);
+	cout << string(width/2, ' ');
+	for (auto it : termi)cout << setw(width) << symbols_hash[it];
+	cout << "\n";
+	for (auto it : nonter) {
+		cout << setw(width/2) << symbols_hash[it];
+		for (auto it2 : termi) {
+			cout << setw(width);
+			if (table.find({ it,it2 }) == table.end()) {
+				cout << "";
+			}
+			else {
+				int table_c = table[{it, it2}];
+				if (table_c == -1)cout << "synch";
+				else cout << "生成式"+std::to_string(table_c);
+			}
+		}
+		cout << "\n";
 	}
 }
 
@@ -283,14 +318,14 @@ void SyntacticAna::create_table()
 		for (j = 0; j < generate_right.size(); j++) {
 			int break_flag = 1;
 			if (nonter.find(generate_right[j]) == nonter.end()) {
-				if (generate_right[j] == symbols["__e"]) {
+				if (generate_right[j] == symbols[EPSILON]) {
 					j++; break;
 				}else
 				first_.insert(generate_right[j]);
 			}
 			else {
 				for (auto it2 : first[j]) {
-					if (it2 == symbols["__e"]) {
+					if (it2 == symbols[EPSILON]) {
 						break_flag = 0;
 					}
 					else {
@@ -301,11 +336,26 @@ void SyntacticAna::create_table()
 			if (break_flag)break;
 		}
 		for (auto it2 : first_) {
+			if (table.find({ generate_left, it2 }) != table.end()) {
+				error("分析表M["+symbols_hash[generate_left]+","+symbols_hash[it2]+"]重复");
+			}
 			table[{generate_left, it2}] = i;
 		}
 		if (j == generate_right.size()) {
 			for (auto it2 : follow[generate_left]) {
+				if (table.find({ generate_left, it2 }) != table.end()) {
+					error("分析表M[" + symbols_hash[generate_left] + "," + symbols_hash[it2] + "]重复");
+				}
 				table[{generate_left, it2}] = i;
+			}
+		}
+	}
+	//添加错误处理信息
+	for (int i = 0; i < symbol_num;i++) {
+		if (nonter.find(i) == nonter.end())continue;
+		for (auto it : follow[i]) {
+			if (table.find({ i,it }) == table.end()) {
+				table[{i, it}] = SYNCH;
 			}
 		}
 	}
@@ -360,19 +410,22 @@ void SyntacticAna::show_res()
 
 void SyntacticAna::solve()
 {
-	const int output_stack = 30,output_input = 30,output_output = 20;
+	show_table_and_generate();
+	const int output_stack = 30,output_input = input.size()+5,output_output = 25;
 	stack_.resize(100);
 	stack_cur = 0;
-	stack_[++stack_cur] = symbols["__$"];
+	stack_[++stack_cur] = symbols[DOLLAR];
 	stack_[++stack_cur] = 0;
 	int cur = 0,temcur=0;
 	string token;
 	get_next_token(token,cur);
-	cout <<"STACK"<< setw(output_stack-5)<<"";
-	cout << setw(output_input) << "INPUT";
-	cout << setw(output_output) << "OUTPUT" << "\n";
+	cout <<"\n    栈"<< setw(output_stack-9)<<"";
+	cout << setw(output_input) << "输入";
+	cout << setw(output_output) << "输出" << "\n";
+	int steps = 1;
 	while (stack_cur>=0) {
 		int count = 0;
+		cout << setw(3)  << steps++ << " ";
 		for (int i = 1; i <= stack_cur;i++) {
 			auto s = symbols_hash[stack_[i]];
 			count +=(s.size() + 1);
@@ -380,26 +433,38 @@ void SyntacticAna::solve()
 		}
 		cout << setw(output_stack - count) << setfill(' ') << "";
 		cout << setw(output_input)<<input.substr(temcur);
-		cout << setw(output_output);
+		cout << "          ";
 		auto top = stack_[stack_cur];
-		if (top == symbols[token] && token=="__$") {
+		if (top == symbols[token] && token==DOLLAR) {
 			cout << "SUCCESS\n";
 			return;
 		}
 		else if (top==symbols[token]) {
-			cout << "识别\n";
+			cout << "匹配\n";
 			stack_cur--;
 			temcur = cur;
 			get_next_token(token, cur);
 			
 		}else
 		{
-			stack_cur--;
+			if (table.find({ top, symbols[token] }) == table.end()) {
+				cout << "识别表为空，跳过输入字符\n";
+				temcur = cur;
+				get_next_token(token, cur);
+				continue;
+			}
 			auto table_c = table[{top, symbols[token]}];
-			cout << "使用" << generate_raw[table_c]<<"\n";
+			if (table_c == SYNCH) {
+				cout << "识别表为synch，跳过栈顶字符\n";
+				stack_cur--;
+				continue;
+			}
+			stack_cur--;
+			cout  << generate_raw[table_c]<<"\n";
 			for (int i = generate[table_c].second.size()-1; i >= 0; i--) {
 				auto num = generate[table_c].second[i];
-				if (symbols_hash[num] == "__e")continue;
+				if (symbols_hash[num] == EPSILON)continue;
+				if (symbols_hash[num] == EPSILON)continue;
 				stack_[++stack_cur] = num;
 			}
 		}
