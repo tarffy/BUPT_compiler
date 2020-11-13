@@ -8,11 +8,12 @@ using std::setiosflags;
 #define EPSILON "_e"
 #define DOLLAR "_$"
 #define SYNCH -1
+#define STACK_SIZE 1000
 SyntacticAna::SyntacticAna(string & name)
 {
-	in.open(name);
+	in.open(name,std::ios::in);
 	if (!in.is_open()) {
-		cout << "Open file filed\n";
+		error("打开文件失败。");
 		return;
 	}
 	get_generate();
@@ -316,10 +317,15 @@ void SyntacticAna::show_errors()
 	if (errors.size()) {
 		cout << "Errors:\n";
 		for (auto &it : errors)cout << it << "\n";
+		if (table_conflict) {
+			cout << "分析表存在冲突，如果要继续分析请按任意键。\n";
+			system("PAUSE");
+		}	
 	}
 	else {
 		cout << "No errors found.\n";
 	}
+	
 }
 
 void SyntacticAna::create_table()
@@ -352,6 +358,7 @@ void SyntacticAna::create_table()
 		for (auto it2 : first_) {
 			if (table.find({ generate_left, it2 }) != table.end()) {
 				error("分析表M["+symbols_hash[generate_left]+","+symbols_hash[it2]+"]重复");
+				table_conflict = 1;
 			}
 			table[{generate_left, it2}] = i;
 		}
@@ -359,6 +366,7 @@ void SyntacticAna::create_table()
 			for (auto it2 : follow[generate_left]) {
 				if (table.find({ generate_left, it2 }) != table.end()) {
 					error("分析表M[" + symbols_hash[generate_left] + "," + symbols_hash[it2] + "]重复");
+					table_conflict = 1;
 				}
 				table[{generate_left, it2}] = i;
 			}
@@ -424,9 +432,10 @@ void SyntacticAna::show_res()
 
 void SyntacticAna::solve()
 {
+	if (generate_num == 0)return;
 	show_table_and_generate();
 	const int output_stack = 30,output_input = input.size()+5,output_output = 25;
-	stack_.resize(100);
+	stack_.resize(STACK_SIZE);
 	stack_cur = 0;
 	stack_[++stack_cur] = symbols[DOLLAR];
 	stack_[++stack_cur] = 0;
