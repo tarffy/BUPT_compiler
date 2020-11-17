@@ -492,5 +492,4 @@ void SyntacticAna::solve()
 		}
 
 	}
-
 }

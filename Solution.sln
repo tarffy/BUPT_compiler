@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Solution", "Solution\Soluti
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SyntacticAnalysis", "SyntacticAnalysis\SyntacticAnalysis.vcxproj", "{534A532A-74AD-42EF-8D07-86C40249E765}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SyntacticAnalysis2", "SyntacticAnalysis2\SyntacticAnalysis2.vcxproj", "{03ECD0AC-29CD-47F1-8D62-0440CB6DE4F3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{534A532A-74AD-42EF-8D07-86C40249E765}.Release|x64.Build.0 = Release|x64
 		{534A532A-74AD-42EF-8D07-86C40249E765}.Release|x86.ActiveCfg = Release|Win32
 		{534A532A-74AD-42EF-8D07-86C40249E765}.Release|x86.Build.0 = Release|Win32
+		{03ECD0AC-29CD-47F1-8D62-0440CB6DE4F3}.Debug|x64.ActiveCfg = Debug|x64
+		{03ECD0AC-29CD-47F1-8D62-0440CB6DE4F3}.Debug|x64.Build.0 = Debug|x64
+		{03ECD0AC-29CD-47F1-8D62-0440CB6DE4F3}.Debug|x86.ActiveCfg = Debug|Win32
+		{03ECD0AC-29CD-47F1-8D62-0440CB6DE4F3}.Debug|x86.Build.0 = Debug|Win32
+		{03ECD0AC-29CD-47F1-8D62-0440CB6DE4F3}.Release|x64.ActiveCfg = Release|x64
+		{03ECD0AC-29CD-47F1-8D62-0440CB6DE4F3}.Release|x64.Build.0 = Release|x64
+		{03ECD0AC-29CD-47F1-8D62-0440CB6DE4F3}.Release|x86.ActiveCfg = Release|Win32
+		{03ECD0AC-29CD-47F1-8D62-0440CB6DE4F3}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

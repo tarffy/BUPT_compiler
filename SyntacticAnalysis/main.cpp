@@ -19,7 +19,7 @@ int main(int argc,char* argv[])
 	SA.show_errors();
 	//SA.show_res();
 	SA.solve();
-	
+	system("PAUSE");
 	return 0;
 }
 
