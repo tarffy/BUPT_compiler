@@ -5,7 +5,7 @@ using std::setw;
 #define DOLLAR "_$"
 #define DOT -1
 #define STACK_SIZE 100
-#define WIDTH 6
+#define WIDTH 8
 void SyntacticAna2::out_dfa(vector<pair<vector<int>, set<int> > >& tem)
 {
 	int first_;
@@ -55,8 +55,26 @@ void SyntacticAna2::closure(vector<pair<vector<int>, set<int>>>& closure_)
 			if (dot_ == it.first.size() - 1)continue;
 			set<int> after_dot2;
 			if (dot_ + 2 == it.first.size())after_dot2.insert(__e);
-			else if (termi.find(it.first[dot_ + 2]) != termi.end())after_dot2.insert(it.first[dot_ + 2]);
-			else for (auto it : first[it.first[dot_ + 2]])after_dot2.insert(it);
+			else { 
+				int break_flag,i;
+				for (i = dot_ + 2; i < it.first.size(); i++) {
+					break_flag = 1;
+					if (termi.find(it.first[i]) != termi.end()) {
+						after_dot2.insert(it.first[i]);
+						break;
+					}
+					for (auto it : first[it.first[dot_ + 2]]) { 
+						if (it == __e) {
+							break_flag = 0;
+							continue;
+						}
+						after_dot2.insert(it); 
+					}
+					if (break_flag)break;
+				}
+				if (i == it.first.size())after_dot2.insert(__e);
+				
+			}
 			int nonterminal = it.first[dot_+1];
 			if (nonter.find(nonterminal) != nonter.end()) {
 				for (int j = 0; j < generate_num; j++) {
@@ -237,7 +255,7 @@ void SyntacticAna2::show_res()
 	string slash = string(WIDTH / 2, ' ') + '|' + string(WIDTH / 2, ' ');
 	cout << "Table:\n";
 	cout << "状态" << slash<< setw((termi.size()) * WIDTH) <<"Action"+ string(termi.size() / 2 * WIDTH, ' ')  <<slash
-		<< setw((nonter.size()  -1) * WIDTH) << "goto"+string((nonter.size()-1) / 2 * WIDTH, ' ')<<"\n";
+		<< setw((nonter.size()  -1) * WIDTH) << "Goto"+string((nonter.size()-1) / 2 * WIDTH, ' ')<<"\n";
 	cout << "    "+slash;
 	for (auto it : termi)cout << setw(WIDTH) << symbols_hash[it];
 	cout << slash;
@@ -324,9 +342,6 @@ void SyntacticAna2::create_dfa()
 	generate_to_vector(tem,0);
 	tem.second.insert(__$);
 	first.emplace_back(tem);
-	
-	//out_dfa(first);
-	
 	queue<vector<pair<vector<int>, set<int> > > > need_hanle;
 	queue<pair<int,int>> parent;	//来自状态几 来的时候的符号
 	int cur = -1;

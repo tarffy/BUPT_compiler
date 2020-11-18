@@ -5,7 +5,7 @@
 #include "SyntacticAnalysis2.h"
 int main(int argc, char* argv[])
 {
-	string file_name="G3.in";
+	string file_name="G4.in";
 	if (argc == 1) {
 		//cout << "请输入要分析文件的绝对路径或相对路径:\n";
 		//std::cin >> file_name;
@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
 	SyntacticAna2 SA(file_name);
 	SA.show_errors();
 	SA.show_res();
-	//SA.solve();
+	SA.solve();
 	system("PAUSE");
 	return 0;
 }
