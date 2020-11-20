@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 	//SA.show_res();
 	
 	SA.solve();
-	//system("PAUSE");
+	system("PAUSE");
 	return 0;
 }
 

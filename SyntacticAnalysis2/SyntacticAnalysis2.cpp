@@ -328,6 +328,7 @@ void SyntacticAna2::show_errors()
 
 void SyntacticAna2::solve()
 {
+	if (generate_num == 0)return;
 	show_table_and_generate();
 	const int output_stack = 40, output_input = input.size() + 5, output_output = 25;
 	vector<pair<int, int> > stack(STACK_SIZE);
