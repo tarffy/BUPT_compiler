@@ -6,6 +6,23 @@ using std::setw;
 #define DOT -1
 #define STACK_SIZE 100
 #define WIDTH 8
+void SyntacticAna2::get_next_token(string & s, int & cur)
+{
+
+		s.clear();
+		while (cur < input.size()) {
+			if (input[cur] == ' ') {
+				cur++;
+				if (s.size()) {
+					return;
+				}
+			}
+			else {
+				s += input[cur++];
+			}
+		}
+	
+}
 void SyntacticAna2::out_dfa(vector<pair<vector<int>, set<int> > >& tem)
 {
 	int first_;
@@ -204,9 +221,14 @@ SyntacticAna2::SyntacticAna2(string & name)
 	}
 	get_generate();
 	handle_generate_raw();
+	reconstruct_generate_raw();
 	first_and_follow_set();
 	create_dfa();
 	create_table();
+	char buffer[200];
+	in.getline(buffer, 200);
+	input = buffer;
+	if (input.find(DOLLAR) == -1)input += (string(" ") + DOLLAR);
 }
 
 void SyntacticAna2::show_res()
@@ -295,7 +317,7 @@ void SyntacticAna2::show_errors()
 		cout << "Errors:\n";
 		for (auto &it : errors)cout << it << "\n";
 		if (table_conflict) {
-			cout << "分析表存在冲突，如果要继续分析请按任意键。\n";
+			cout << "分析表存在冲突，继续分析请按任意键。\n";
 			system("PAUSE");
 		}
 	}
@@ -306,12 +328,57 @@ void SyntacticAna2::show_errors()
 
 void SyntacticAna2::solve()
 {
+	show_table_and_generate();
+	const int output_stack = 40, output_input = input.size() + 5, output_output = 25;
 	vector<pair<int, int> > stack(STACK_SIZE);
-	int cur = -1;
-	stack[++cur] = { 0,__$ };
-	while (cur >= 0) {
-		auto top = stack[cur--];
-
+	int stack_cur = -1;
+	stack[++stack_cur] = { 0,__$ };
+	int cur = 0,temcur=0;
+	string token;
+	temcur = cur;
+	get_next_token(token, cur);
+	cout << "\n    栈" << setw(output_stack - 9) << "";
+	cout << setw(output_input-5) << "输入";
+	cout << setw(output_output) << "输出" << "\n";
+	int end = 0;
+	while (!end) {
+		int char_count = 0;
+		for (int i = 0; i <= stack_cur; i++) {
+			auto sym = symbols_hash[stack[i].second];
+			cout << stack[i].first << sym << " ";
+			char_count =char_count+ 2+sym.length()  ;
+			if (stack[i].first >= 10)char_count++;
+		}
+		if (char_count < output_stack)\
+			cout << setw(output_stack - char_count) << " ";
+		cout << setw(output_input) << input.substr(temcur);
+		cout << "          ";
+		auto top = stack[stack_cur];
+		if (table.find({ top.first, symbols[token] }) == table.end()) {
+			error("分析时出错：分析表为空。");
+			cout << "\n分析表为空，分析出错。\b";
+			return;
+		}
+		auto choice = table[{top.first, symbols[token]}];
+		switch (choice.first)
+		{
+		case 4:cout << "ACC"; end = 1; break;
+		case 2: {
+			auto gene = generate[choice.second];
+			stack_cur -= gene.second.size();
+			auto goto_ = table[{stack[stack_cur].first, gene.first}];
+			stack[++stack_cur] = { goto_.second,gene.first };
+			cout << generate_raw[choice.second];
+			break;
+		}
+		case 1: {
+			stack[++stack_cur] = { choice.second ,symbols[token] };
+			temcur = cur;
+			get_next_token(token, cur);
+			cout << "Shift" + std::to_string(choice.second) ;
+			break; }
+		}
+		cout << '\n';
 	}
 }
 
@@ -422,6 +489,10 @@ void SyntacticAna2::create_table()
 					if (continue_flag)continue;
 					else {
 						for (auto it : part[j].second) {
+							if (table.find({ i,it }) != table.end()) {
+								error("分析表冲突");
+								table_conflict = 1;
+							}
 							table[{i, it}] = { 2,q };
 						}
 					}
@@ -431,12 +502,20 @@ void SyntacticAna2::create_table()
 		//判断goto
 		for (auto it : nonter) {
 			if (relation.find({i, it}) != relation.end()) {
+				if (table.find({ i,it }) != table.end()) {
+					error("分析表冲突");
+					table_conflict = 1;
+				}
 				table[{i, it}] = { 3,relation[{i,it}] };
 			}
 		}
 		//判断shift
 		for (auto it : termi) {
 			if (relation.find({ i, it }) != relation.end()) {
+				if (table.find({ i,it }) != table.end()) {
+					error("分析表冲突");
+					table_conflict = 1;
+				}
 				table[{i, it}] = { 1,relation[{i,it}] };
 			}
 		}
@@ -507,6 +586,18 @@ void SyntacticAna2::handle_generate_raw()
 	termi.erase(symbols[EPSILON]);
 	__e = symbols[EPSILON];
 	__$ = symbols[DOLLAR];
+}
+
+void SyntacticAna2::reconstruct_generate_raw()
+{
+	generate_raw.clear();
+	generate_raw.resize(generate_num);
+	for (int i = 0; i < generate_num; i++) {
+		string tem;
+		tem = symbols_hash[generate[i].first] + " ->";
+		for (auto it : generate[i].second)tem += (" " + symbols_hash[it]);
+		generate_raw[i] = tem;
+	}
 }
 
 void SyntacticAna2::first_and_follow_set()
@@ -600,4 +691,52 @@ void SyntacticAna2::first_and_follow_set()
 	}
 
 
+}
+
+void SyntacticAna2::show_table_and_generate()
+{
+
+	cout << "拓广文法：\n";
+	for (int i = 0; i < generate_raw.size(); i++)cout << i << " " << generate_raw[i] << "\n";
+	string slash = string(WIDTH / 2, ' ') + '|' + string(WIDTH / 2, ' ');
+	cout << "项目集规范族：\n";
+	for (int i = 0; i < dfa.size(); i++) {
+		cout << "I" << i << ":\n";
+		out_dfa(dfa[i]);
+	}
+	cout << "分析表：\n";
+	cout << "状态" << slash << setw((termi.size()) * WIDTH) << "Action" + string(termi.size() / 2 * WIDTH, ' ') << slash
+		<< setw((nonter.size() - 1) * WIDTH) << "Goto" + string((nonter.size() - 1) / 2 * WIDTH, ' ') << "\n";
+	cout << "    " + slash;
+	for (auto it : termi)cout << setw(WIDTH) << symbols_hash[it];
+	cout << slash;
+	for (auto it : nonter) {
+		if (it == 0)continue;
+		cout << setw(WIDTH) << symbols_hash[it];
+	}
+	cout << "\n";
+	for (int i = 0; i < dfa.size(); i++) {
+		cout << setw(4) << i << slash;
+		for (auto it : termi) {
+			string tem = "";
+			if (table.find({ i,it }) != table.end()) {
+				auto res = table[{i, it}];
+				if (res.first == 1)tem += ("S" + std::to_string(res.second));
+				else if (res.first == 2)tem += ("R" + std::to_string(res.second));
+				else if (res.first == 4)tem += "ACC";
+			}
+			cout << setw(WIDTH) << tem;
+		}
+		cout << slash;
+		for (auto it : nonter) {
+			if (it == 0)continue;
+			string tem = "";
+			if (table.find({ i,it }) != table.end()) {
+				auto res = table[{i, it}];
+				tem += std::to_string(res.second);
+			}
+			cout << setw(WIDTH) << tem;
+		}
+		cout << "\n";
+	}
 }

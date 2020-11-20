@@ -45,10 +45,11 @@ private:
 	vector<int> stack_;		//使用vector模拟字符串识别过程中的栈
 	int stack_cur;			//记录栈顶位置
 	string input;			//读入的要识别的字符串 末尾没有$会自动补上
-	int table_conflict = 0;//分析表是否存在问题
-	vector<vector<pair<vector<int>, set<int> > > >  dfa;
-	unordered_map<pair<int,int>,int,hashfunc> relation;
-
+	vector<vector<pair<vector<int>, set<int> > > >  dfa;	
+	//其中每一个元素都是一个项目集 项目集中每一个元素都是一个项目 pair的fisrt为一个vector<int>
+	//为LR(0)项目每个字符对应的数字 其中.为-1 pair的second代表向前看字符串中的字符的符号
+	unordered_map<pair<int,int>,int,hashfunc> relation;	//代表项目集的转移方式 pair为当前项目和读到的符号 第三个int为转以后的项目集编号
+	int table_conflict = 0;
 	inline void error(string message) {
 		errors.push_back(message);
 	}
@@ -57,14 +58,14 @@ private:
 	void create_dfa();
 	void create_table();		//根据生成式、FIRST、FOLLOW集构造分析表
 	void handle_generate_raw();//处理读入的原始生成式
-	void handle_recursion();//消除左递归
 	void reconstruct_generate_raw();//消左递归后重新构造生成式
 	void first_and_follow_set();//计算所有非终结符的FIRST、FOLLOW集
 	void show_table_and_generate();//符号串分析前输出生成式和分析表
 	void get_next_token(string &s, int &cur);//语法分析中 读取输入字符串的下一个字符
-	void out_dfa(vector<pair<vector<int>, set<int> > > &tem);
-	void closure(vector<pair<vector<int>, set<int> > > &closure);
-	int closure_check(pair<vector<int>, set<int>> &tem, vector<pair<vector<int>, set<int> > > &closure); //0-size代表可以合并 -1重复 -2新的
+	void out_dfa(vector<pair<vector<int>, set<int> > > &tem);	//输出一个项目集的信息
+	void closure(vector<pair<vector<int>, set<int> > > &closure);	//计算当前项目集的闭包
+	int closure_check(pair<vector<int>, set<int>> &tem, vector<pair<vector<int>, set<int> > > &closure); 
+	//检查当前元素是否与闭包中元素重复 返回值为0-size代表可以合并 -1重复 -2新的
 	void generate_to_vector(pair<vector<int>, set<int>> &tem,int i);
 	int check_vector_vector(vector<pair<vector<int>, set<int> > > &tem);//-1加入 0-n重复 
 public:
